@@ -114,9 +114,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background text-white selection:bg-accent selection:text-black">
+    <div className="h-screen flex flex-col md:flex-row bg-background text-white selection:bg-accent selection:text-black overflow-hidden">
       {/* Sidebar - Desktop Only */}
-      <nav className="hidden md:flex w-64 bg-surface border-r border-border p-4 flex-col gap-2 z-10">
+      <nav className="hidden md:flex w-64 bg-surface border-r border-border p-4 flex-col gap-2 z-10 overflow-y-auto scrollbar-hide">
         <div className="flex items-center gap-3 px-2 mb-8 mt-2">
           <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center">
             <Zap className="text-black fill-black" size={24} />
@@ -292,15 +292,15 @@ function Dashboard({ userData, setActiveTab, addStudySession }: { userData: User
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="nothing-card">
-          <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-            <Calendar size={20} className="text-accent" /> Study Heatmap
+          <h3 className="text-2xl font-serif font-light mb-8 flex items-center gap-3 border-b border-border pb-4">
+            <Calendar size={24} className="text-accent" /> Study Heatmap
           </h3>
           <Heatmap sessions={userData.studySessions} />
         </div>
 
         <div className="nothing-card">
-          <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-            <BarChart3 size={20} className="text-secondary" /> Score Trend
+          <h3 className="text-2xl font-serif font-light mb-8 flex items-center gap-3 border-b border-border pb-4">
+            <BarChart3 size={24} className="text-secondary" /> Score Trend
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -414,10 +414,10 @@ function ChapterTracker({ userData, updateChapterStatus }: { userData: UserData,
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-8 mb-8">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Syllabus Progress</h2>
-          <p className="text-white/50 mt-1">Track your journey through JEE concepts.</p>
+          <h2 className="text-4xl font-serif font-light tracking-tight">Syllabus Progress</h2>
+          <p className="text-white/50 mt-2 font-light tracking-wide">Track your journey through JEE concepts.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {['All', 'Physics', 'Chemistry', 'Mathematics'].map(f => (
@@ -514,10 +514,10 @@ function MockTestTracker({ userData, addMockTest }: { userData: UserData, addMoc
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between border-b border-border pb-8 mb-8">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Mock Tests</h2>
-          <p className="text-white/50 mt-1">Analyze your performance under pressure.</p>
+          <h2 className="text-4xl font-serif font-light tracking-tight">Mock Tests</h2>
+          <p className="text-white/50 mt-2 font-light tracking-wide">Analyze your performance under pressure.</p>
         </div>
         <button onClick={() => setShowAdd(!showAdd)} className="nothing-button flex items-center gap-2">
           <Plus size={18} /> New Test
@@ -658,14 +658,14 @@ function Analytics({ userData }: { userData: UserData }) {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Performance Analytics</h2>
-        <p className="text-white/50 mt-1">Deep dive into your strengths and weaknesses.</p>
+      <header className="border-b border-border pb-8 mb-8">
+        <h2 className="text-4xl font-serif font-light tracking-tight">Performance Analytics</h2>
+        <p className="text-white/50 mt-2 font-light tracking-wide">Deep dive into your strengths and weaknesses.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="nothing-card">
-          <h3 className="text-lg font-semibold mb-6">Subject Strength (Latest Test)</h3>
+          <h3 className="text-2xl font-serif font-light mb-8 border-b border-border pb-4">Subject Strength (Latest Test)</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
@@ -684,7 +684,7 @@ function Analytics({ userData }: { userData: UserData }) {
         </div>
 
         <div className="nothing-card">
-          <h3 className="text-lg font-semibold mb-6">Syllabus Completion by Subject</h3>
+          <h3 className="text-2xl font-serif font-light mb-8 border-b border-border pb-4">Syllabus Completion by Subject</h3>
           <div className="space-y-8 mt-4">
             {syllabusStats.map(stat => (
               <div key={stat.name}>
@@ -751,9 +751,9 @@ function Pomodoro({ addStudySession }: { addStudySession: (d: number) => void })
 
   return (
     <div className="max-w-md mx-auto text-center space-y-8 py-12">
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Focus Timer</h2>
-        <p className="text-white/50 mt-1">Deep work sessions for maximum retention.</p>
+      <header className="border-b border-border pb-8 mb-8">
+        <h2 className="text-4xl font-serif font-light tracking-tight">Focus Timer</h2>
+        <p className="text-white/50 mt-2 font-light tracking-wide">Deep work sessions for maximum retention.</p>
       </header>
 
       <div className="nothing-card p-12 relative overflow-hidden">

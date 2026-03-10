@@ -39,6 +39,14 @@
     background-size: 20px 20px;
   }
 
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Smart Navigation Menu Styles - Precision Refinement */
   .smart-nav-container {
     @apply fixed bottom-8 left-1/2 -translate-x-1/2 z-50 md:hidden;

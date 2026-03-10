@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0f0f0f;
+  --color-accent: #00ffcc;
+  --color-secondary: #7a7aff;
+  --color-surface: #1a1a1a;
+  --color-border: #333333;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-white font-sans antialiased;
+  }
+}
+
+@layer components {
+  .nothing-card {
+    @apply bg-surface border border-border rounded-2xl p-6 transition-all duration-200;
+  }
+  
+  .nothing-button {
+    @apply bg-white text-black font-medium px-6 py-2 rounded-full hover:bg-accent transition-colors duration-200 disabled:opacity-50;
+  }
+
+  .nothing-button-outline {
+    @apply border border-white text-white font-medium px-6 py-2 rounded-full hover:bg-white hover:text-black transition-all duration-200;
+  }
+
+  .nothing-input {
+    @apply bg-surface border border-border rounded-xl px-4 py-2 focus:outline-none focus:border-accent transition-colors;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(circle, #333 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Smart Navigation Menu Styles - Precision Refinement */
+  .smart-nav-container {
+    @apply fixed bottom-8 left-1/2 -translate-x-1/2 z-50 md:hidden;
+    width: calc(100% - 48px);
+    max-width: 400px;
+  }
+
+  .smart-nav {
+    @apply relative w-full h-[64px] bg-surface/90 backdrop-blur-xl border border-white/10 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.6)];
+  }
+
+  .smart-nav ul {
+    @apply grid grid-cols-5 w-full h-full relative;
+  }
+
+  .smart-nav ul li {
+    @apply relative list-none h-full z-10;
+  }
+
+  .smart-nav ul li a {
+    @apply relative flex justify-center items-center flex-col w-full h-full text-center;
+  }
+
+  .smart-nav .icon {
+    @apply relative flex items-center justify-center w-10 h-10 text-[1.4em] text-white/30 transition-all duration-500 ease-[cubic-bezier(0.68,-0.55,0.265,1.55)];
+  }
+
+  .smart-nav ul li.active a .icon {
+    @apply -translate-y-8 text-black scale-110;
+  }
+
+  .smart-nav .text {
+    @apply absolute text-accent text-[10px] opacity-0 translate-y-6 transition-all duration-500 ease-out font-mono font-bold uppercase tracking-widest pointer-events-none;
+  }
+
+  .smart-nav ul li.active a .text {
+    @apply opacity-100 translate-y-4;
+  }
+
+  .smart-nav .indicator {
+    @apply absolute w-[60px] h-[60px] bg-accent rounded-full border-[4px] border-background shadow-[0_10px_20px_rgba(0,255,204,0.4)] transition-all duration-500;
+    transition-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    top: -30px;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full hover:bg-accent/50 transition-colors;
+}
+

@@ -1,5 +1,5 @@
 {
   "name": "RankForge",
-  "description": "A privacy-focused, fully client-side JEE preparation tracker with progress mapping, study heatmaps, and performance analytics.",
+  "description": "A privacy-focused, fully client-side JEE preparation tracker with progress mapping, study heatmaps, performance analytics, and offline PWA support.",
   "requestFramePermissions": []
 }

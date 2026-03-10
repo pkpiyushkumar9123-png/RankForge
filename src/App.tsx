@@ -309,10 +309,10 @@ function Dashboard({ userData, setActiveTab, addStudySession }: { userData: User
                 <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '12px' }}
-                  itemStyle={{ color: '#00ffcc' }}
+                  contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #1f1f1f', borderRadius: '8px' }}
+                  itemStyle={{ color: '#ffffff' }}
                 />
-                <Line type="monotone" dataKey="score" stroke="#00ffcc" strokeWidth={3} dot={{ fill: '#00ffcc', r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="score" stroke="#ffffff" strokeWidth={2} dot={{ fill: '#ffffff', r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -674,9 +674,9 @@ function Analytics({ userData }: { userData: UserData }) {
                 <Radar
                   name="Score"
                   dataKey="score"
-                  stroke="#00ffcc"
-                  fill="#00ffcc"
-                  fillOpacity={0.3}
+                  stroke="#ffffff"
+                  fill="#ffffff"
+                  fillOpacity={0.1}
                 />
               </RadarChart>
             </ResponsiveContainer>
@@ -831,9 +831,9 @@ function RankSimulator({ userData }: { userData: UserData }) {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Rank Simulator</h2>
-        <p className="text-white/50 mt-1">Estimate your standing based on mock performance.</p>
+      <header className="border-b border-border pb-8 mb-8">
+        <h2 className="text-4xl font-serif font-light tracking-tight">Rank Simulator</h2>
+        <p className="text-white/50 mt-2 font-light tracking-wide">Estimate your standing based on mock performance.</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
@@ -901,9 +901,9 @@ function Settings({ userData, setUserData }: { userData: UserData, setUserData: 
 
   return (
     <div className="space-y-8 max-w-2xl mx-auto">
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
-        <p className="text-white/50 mt-1">Manage your profile and data.</p>
+      <header className="border-b border-border pb-8 mb-8">
+        <h2 className="text-4xl font-serif font-light tracking-tight">Settings</h2>
+        <p className="text-white/50 mt-2 font-light tracking-wide">Manage your profile and data.</p>
       </header>
 
       <div className="nothing-card space-y-6">

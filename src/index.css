@@ -61,7 +61,7 @@
   }
 
   .smart-nav ul {
-    @apply grid grid-cols-5 w-full h-full relative;
+    @apply grid grid-cols-7 w-full h-full relative;
   }
 
   .smart-nav ul li {
@@ -89,9 +89,10 @@
   }
 
   .smart-nav .indicator {
-    @apply absolute w-[60px] h-[60px] bg-accent rounded-full border-[4px] border-background shadow-lg transition-all duration-500;
+    @apply absolute w-[56px] h-[56px] bg-accent rounded-full border-[4px] border-background shadow-lg transition-all duration-500;
     transition-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    top: -30px;
+    top: -28px;
+    transform: translateX(-50%);
   }
 }
 

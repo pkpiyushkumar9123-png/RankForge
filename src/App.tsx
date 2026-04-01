@@ -19,7 +19,17 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  RotateCcw
+  RotateCcw,
+  ListTodo,
+  Trash2,
+  CalendarDays,
+  Flame,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  Play,
+  Pause,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -31,7 +41,7 @@ import { format, subDays, startOfDay, isSameDay, parseISO } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import { UserData, ChapterStatus, MockTest, StudySession, UserChapterData } from './types';
+import { UserData, ChapterStatus, MockTest, StudySession, UserChapterData, Task, TaskPriority, TaskCategory } from './types';
 import { SYLLABUS } from './syllabus';
 
 // Utility for tailwind classes
@@ -43,6 +53,7 @@ const INITIAL_DATA: UserData = {
   chapters: {},
   studySessions: [],
   mockTests: [],
+  tasks: [],
   settings: {
     userName: 'Aspirant',
     targetYear: 2026,
@@ -54,8 +65,35 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [userData, setUserData] = useState<UserData>(() => {
     const saved = localStorage.getItem('rankforge_data');
-    return saved ? JSON.parse(saved) : INITIAL_DATA;
+    if (!saved) return INITIAL_DATA;
+    try {
+      const parsed = JSON.parse(saved);
+      return {
+        ...INITIAL_DATA,
+        ...parsed,
+        // Ensure arrays exist
+        chapters: parsed.chapters || {},
+        studySessions: parsed.studySessions || [],
+        mockTests: parsed.mockTests || [],
+        tasks: parsed.tasks || [],
+        settings: { ...INITIAL_DATA.settings, ...(parsed.settings || {}) }
+      };
+    } catch (e) {
+      return INITIAL_DATA;
+    }
   });
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' } | null>(null);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (message: string, type: 'success' | 'info' = 'info') => {
+    setNotification({ message, type });
+  };
 
   useEffect(() => {
     localStorage.setItem('rankforge_data', JSON.stringify(userData));
@@ -100,13 +138,50 @@ export default function App() {
     }));
   };
 
+  const addTask = (task: Omit<Task, 'id' | 'createdAt' | 'completed'>) => {
+    const newTask: Task = {
+      ...task,
+      id: Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString(),
+      completed: false,
+    };
+    setUserData(prev => ({
+      ...prev,
+      tasks: [...prev.tasks, newTask]
+    }));
+    showNotification('Task added successfully!', 'success');
+  };
+
+  const toggleTask = (taskId: string) => {
+    setUserData(prev => {
+      const task = prev.tasks.find(t => t.id === taskId);
+      if (task && !task.completed) {
+        showNotification('Task completed! Keep it up.', 'success');
+      }
+      return {
+        ...prev,
+        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
+      };
+    });
+  };
+
+  const deleteTask = (taskId: string | string[]) => {
+    const idsToDelete = Array.isArray(taskId) ? taskId : [taskId];
+    setUserData(prev => ({
+      ...prev,
+      tasks: prev.tasks.filter(t => !idsToDelete.includes(t.id))
+    }));
+    showNotification(idsToDelete.length > 1 ? 'Completed tasks cleared.' : 'Task deleted.');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard userData={userData} setActiveTab={setActiveTab} addStudySession={addStudySession} />;
       case 'chapters': return <ChapterTracker userData={userData} updateChapterStatus={updateChapterStatus} />;
       case 'tests': return <MockTestTracker userData={userData} addMockTest={addMockTest} />;
       case 'analytics': return <Analytics userData={userData} />;
-      case 'pomodoro': return <Pomodoro addStudySession={addStudySession} />;
+      case 'tasks': return <Tasks userData={userData} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} />;
+      case 'pomodoro': return <Pomodoro userData={userData} addStudySession={addStudySession} toggleTask={toggleTask} />;
       case 'rank': return <RankSimulator userData={userData} />;
       case 'settings': return <Settings userData={userData} setUserData={setUserData} />;
       default: return <Dashboard userData={userData} setActiveTab={setActiveTab} addStudySession={addStudySession} />;
@@ -131,6 +206,7 @@ export default function App() {
         <NavItem icon={<BookOpen size={20} />} label="Syllabus" active={activeTab === 'chapters'} onClick={() => setActiveTab('chapters')} />
         <NavItem icon={<Trophy size={20} />} label="Mock Tests" active={activeTab === 'tests'} onClick={() => setActiveTab('tests')} />
         <NavItem icon={<BarChart3 size={20} />} label="Analytics" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} />
+        <NavItem icon={<ListTodo size={20} />} label="Tasks" active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} />
         <NavItem icon={<Target size={20} />} label="Rank Sim" active={activeTab === 'rank'} onClick={() => setActiveTab('rank')} />
         <NavItem icon={<Timer size={20} />} label="Pomodoro" active={activeTab === 'pomodoro'} onClick={() => setActiveTab('pomodoro')} />
         
@@ -142,21 +218,25 @@ export default function App() {
       {/* Mobile Smart Navigation */}
       <div className="smart-nav-container">
         <div className="smart-nav">
-          <ul className="relative grid grid-cols-5 w-full h-full">
-            {(['dashboard', 'chapters', 'tests', 'analytics', 'rank'] as const).map((tab) => {
+          <ul className="relative grid grid-cols-7 w-full h-full">
+            {(['dashboard', 'chapters', 'tests', 'tasks', 'analytics', 'rank', 'pomodoro'] as const).map((tab) => {
               const icons: Record<string, React.ReactNode> = {
                 dashboard: <LayoutDashboard size={24} />,
                 chapters: <BookOpen size={24} />,
                 tests: <Trophy size={24} />,
+                tasks: <ListTodo size={24} />,
                 analytics: <BarChart3 size={24} />,
-                rank: <Target size={24} />
+                rank: <Target size={24} />,
+                pomodoro: <Timer size={24} />
               };
               const labels: Record<string, string> = {
                 dashboard: 'Home',
                 chapters: 'Study',
                 tests: 'Tests',
+                tasks: 'Tasks',
                 analytics: 'Stats',
-                rank: 'Rank'
+                rank: 'Rank',
+                pomodoro: 'Focus'
               };
               return (
                 <SmartNavItem 
@@ -172,7 +252,7 @@ export default function App() {
             <div 
               className="indicator" 
               style={{ 
-                left: `calc(${['dashboard', 'chapters', 'tests', 'analytics', 'rank'].indexOf(activeTab)} * 20% + 10% - 30px)`
+                left: `calc((${['dashboard', 'chapters', 'tests', 'tasks', 'analytics', 'rank', 'pomodoro'].indexOf(activeTab)} + 0.5) * (100% / 7))`
               }}
             />
           </ul>
@@ -195,6 +275,24 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 50, x: '-50%' }}
+            className={cn(
+              "fixed bottom-24 md:bottom-8 left-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border",
+              notification.type === 'success' ? "bg-accent text-black border-accent" : "bg-surface text-white border-border"
+            )}
+          >
+            {notification.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+            <span className="text-sm font-medium">{notification.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -220,10 +318,12 @@ function SmartNavItem({ icon, label, active, onClick }: SmartNavItemProps) {
 
 function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) {
   return (
-    <button
+    <motion.button
+      whileHover={{ x: 4 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+        "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group w-full text-left",
         active 
           ? "bg-white text-black font-medium shadow-lg shadow-white/5" 
           : "text-white/60 hover:text-white hover:bg-white/5"
@@ -233,7 +333,7 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, labe
         {icon}
       </span>
       <span className="text-sm">{label}</span>
-    </button>
+    </motion.button>
   );
 }
 
@@ -248,21 +348,57 @@ function Dashboard({ userData, setActiveTab, addStudySession }: { userData: User
     const todaySessions = userData.studySessions.filter(s => isSameDay(parseISO(s.date), new Date()));
     const todayMinutes = todaySessions.reduce((acc, s) => acc + s.durationMinutes, 0);
 
-    return { totalChapters, completedChapters, inProgressChapters, progress, todayMinutes };
+    const pendingTasks = userData.tasks.filter(t => !t.completed).length;
+    const completedTasksToday = userData.tasks.filter(t => t.completed && isSameDay(parseISO(t.createdAt), new Date())).length;
+
+    return { totalChapters, completedChapters, inProgressChapters, progress, todayMinutes, pendingTasks, completedTasksToday };
   }, [userData]);
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="space-y-8">
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-8"
+    >
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
+        <motion.div variants={itemVariants}>
           <h2 className="text-3xl font-bold tracking-tight">Welcome back, {userData.settings.userName}</h2>
           <p className="text-white/50 mt-1">Targeting JEE {userData.settings.targetYear}. Keep pushing.</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => setActiveTab('pomodoro')} className="nothing-button flex items-center gap-2">
+        </motion.div>
+        <motion.div variants={itemVariants} className="flex gap-3">
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setActiveTab('tasks')} 
+            className="nothing-button-outline flex items-center gap-2"
+          >
+            <ListTodo size={18} /> {stats.pendingTasks} Tasks Pending
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setActiveTab('pomodoro')} 
+            className="nothing-button flex items-center gap-2"
+          >
             <Timer size={18} /> Start Session
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -272,6 +408,7 @@ function Dashboard({ userData, setActiveTab, addStudySession }: { userData: User
           subValue={`${stats.completedChapters}/${stats.totalChapters} Chapters`}
           icon={<BookOpen className="text-accent" />}
           progress={stats.progress}
+          delay={0.1}
         />
         <StatCard 
           label="Today's Study" 
@@ -279,26 +416,27 @@ function Dashboard({ userData, setActiveTab, addStudySession }: { userData: User
           subValue={`Goal: ${Math.floor(userData.settings.dailyGoalMinutes / 60)}h`}
           icon={<Clock className="text-secondary" />}
           progress={Math.min(100, (stats.todayMinutes / userData.settings.dailyGoalMinutes) * 100)}
+          delay={0.2}
         />
         <StatCard 
-          label="Mock Avg Score" 
-          value={userData.mockTests.length > 0 
-            ? Math.round(userData.mockTests.reduce((acc, t) => acc + (t.score / t.totalMarks) * 300, 0) / userData.mockTests.length).toString() 
-            : '0'} 
-          subValue={`${userData.mockTests.length} Tests Taken`}
-          icon={<Trophy className="text-yellow-400" />}
+          label="Tasks Completed" 
+          value={stats.completedTasksToday.toString()} 
+          subValue={`${stats.pendingTasks} more to go`}
+          icon={<CheckCircle2 className="text-accent" />}
+          progress={userData.tasks.length > 0 ? (stats.completedTasksToday / userData.tasks.length) * 100 : 0}
+          delay={0.3}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="nothing-card">
+        <motion.div variants={itemVariants} className="nothing-card">
           <h3 className="text-2xl font-serif font-light mb-8 flex items-center gap-3 border-b border-border pb-4">
             <Calendar size={24} className="text-accent" /> Study Heatmap
           </h3>
           <Heatmap sessions={userData.studySessions} />
-        </div>
+        </motion.div>
 
-        <div className="nothing-card">
+        <motion.div variants={itemVariants} className="nothing-card">
           <h3 className="text-2xl font-serif font-light mb-8 flex items-center gap-3 border-b border-border pb-4">
             <BarChart3 size={24} className="text-secondary" /> Score Trend
           </h3>
@@ -316,15 +454,20 @@ function Dashboard({ userData, setActiveTab, addStudySession }: { userData: User
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-function StatCard({ label, value, subValue, icon, progress }: { label: string, value: string, subValue: string, icon: React.ReactNode, progress?: number }) {
+function StatCard({ label, value, subValue, icon, progress, delay = 0 }: { label: string, value: string, subValue: string, icon: React.ReactNode, progress?: number, delay?: number }) {
   return (
-    <div className="nothing-card group">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className="nothing-card group"
+    >
       <div className="flex justify-between items-start mb-4">
         <div className="p-2 bg-white/5 rounded-lg group-hover:bg-white/10 transition-colors">
           {icon}
@@ -346,7 +489,7 @@ function StatCard({ label, value, subValue, icon, progress }: { label: string, v
           />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -413,7 +556,11 @@ function ChapterTracker({ userData, updateChapterStatus }: { userData: UserData,
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-6"
+    >
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-8 mb-8">
         <div>
           <h2 className="text-4xl font-serif font-light tracking-tight">Syllabus Progress</h2>
@@ -421,7 +568,9 @@ function ChapterTracker({ userData, updateChapterStatus }: { userData: UserData,
         </div>
         <div className="flex flex-wrap gap-2">
           {['All', 'Physics', 'Chemistry', 'Mathematics'].map(f => (
-            <button 
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               key={f}
               onClick={() => setFilter(f as any)}
               className={cn(
@@ -430,7 +579,7 @@ function ChapterTracker({ userData, updateChapterStatus }: { userData: UserData,
               )}
             >
               {f}
-            </button>
+            </motion.button>
           ))}
         </div>
       </header>
@@ -446,38 +595,51 @@ function ChapterTracker({ userData, updateChapterStatus }: { userData: UserData,
         <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={20} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredChapters.map(chapter => {
-          const userChapter = userData.chapters[chapter.id];
-          return (
-            <div key={chapter.id} className="nothing-card flex flex-col justify-between group">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">{chapter.category}</span>
-                  <div className={cn("transition-colors", getStatusColor(userChapter?.status))}>
-                    {getStatusIcon(userChapter?.status)}
+      <motion.div 
+        layout
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <AnimatePresence mode="popLayout">
+          {filteredChapters.map((chapter, index) => {
+            const userChapter = userData.chapters[chapter.id];
+            return (
+              <motion.div 
+                key={chapter.id}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ delay: Math.min(index * 0.02, 0.2) }}
+                className="nothing-card flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">{chapter.category}</span>
+                    <div className={cn("transition-colors", getStatusColor(userChapter?.status))}>
+                      {getStatusIcon(userChapter?.status)}
+                    </div>
                   </div>
+                  <h4 className="font-semibold text-lg leading-tight group-hover:text-accent transition-colors">{chapter.name}</h4>
                 </div>
-                <h4 className="font-semibold text-lg leading-tight group-hover:text-accent transition-colors">{chapter.name}</h4>
-              </div>
-              
-              <div className="mt-6 flex gap-2">
-                <select 
-                  value={userChapter?.status || 'NOT_STARTED'}
-                  onChange={(e) => updateChapterStatus(chapter.id, e.target.value as ChapterStatus)}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-accent"
-                >
-                  <option value="NOT_STARTED">Not Started</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="REVISION_NEEDED">Revision Needed</option>
-                </select>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                
+                <div className="mt-6 flex gap-2">
+                  <select 
+                    value={userChapter?.status || 'NOT_STARTED'}
+                    onChange={(e) => updateChapterStatus(chapter.id, e.target.value as ChapterStatus)}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-accent"
+                  >
+                    <option value="NOT_STARTED">Not Started</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="REVISION_NEEDED">Revision Needed</option>
+                  </select>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -583,49 +745,61 @@ function MockTestTracker({ userData, addMockTest }: { userData: UserData, addMoc
       )}
 
       <div className="space-y-4">
-        {userData.mockTests.length === 0 ? (
-          <div className="nothing-card text-center py-12">
-            <Trophy size={48} className="mx-auto text-white/10 mb-4" />
-            <p className="text-white/40">No tests recorded yet. Take your first leap!</p>
-          </div>
-        ) : (
-          userData.mockTests.slice().reverse().map(test => (
-            <div key={test.id} className="nothing-card flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:border-accent/50">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-accent font-bold">
-                  {Math.round((test.score / test.totalMarks) * 100)}%
+        <AnimatePresence initial={false}>
+          {userData.mockTests.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="nothing-card text-center py-12"
+            >
+              <Trophy size={48} className="mx-auto text-white/10 mb-4" />
+              <p className="text-white/40">No tests recorded yet. Take your first leap!</p>
+            </motion.div>
+          ) : (
+            userData.mockTests.slice().reverse().map((test, index) => (
+              <motion.div 
+                key={test.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.05, 0.3) }}
+                className="nothing-card flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:border-accent/50"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-accent font-bold">
+                    {Math.round((test.score / test.totalMarks) * 100)}%
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-lg">{test.name}</h4>
+                    <p className="text-white/40 text-sm">{format(parseISO(test.date), 'MMMM d, yyyy')}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-lg">{test.name}</h4>
-                  <p className="text-white/40 text-sm">{format(parseISO(test.date), 'MMMM d, yyyy')}</p>
+                
+                <div className="grid grid-cols-3 gap-8">
+                  <div className="text-center">
+                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Physics</p>
+                    <p className="font-bold text-lg">{test.physicsScore}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Chem</p>
+                    <p className="font-bold text-lg">{test.chemistryScore}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Math</p>
+                    <p className="font-bold text-lg">{test.mathsScore}</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-8">
-                <div className="text-center">
-                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Physics</p>
-                  <p className="font-bold text-lg">{test.physicsScore}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Chem</p>
-                  <p className="font-bold text-lg">{test.chemistryScore}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Math</p>
-                  <p className="font-bold text-lg">{test.mathsScore}</p>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Total Score</p>
-                  <p className="text-2xl font-bold text-accent">{test.score}<span className="text-white/20 text-sm font-normal">/{test.totalMarks}</span></p>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Total Score</p>
+                    <p className="text-2xl font-bold text-accent">{test.score}<span className="text-white/20 text-sm font-normal">/{test.totalMarks}</span></p>
+                  </div>
+                  <ChevronRight className="text-white/20 group-hover:text-accent transition-colors" />
                 </div>
-                <ChevronRight className="text-white/20 group-hover:text-accent transition-colors" />
-              </div>
-            </div>
-          ))
-        )}
+              </motion.div>
+            ))
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -711,11 +885,42 @@ function Analytics({ userData }: { userData: UserData }) {
   );
 }
 
-// --- Pomodoro Component ---
-function Pomodoro({ addStudySession }: { addStudySession: (d: number) => void }) {
+// --- Advanced Pomodoro Component ---
+function Pomodoro({ userData, addStudySession, toggleTask }: { userData: UserData, addStudySession: (d: number) => void, toggleTask: (id: string) => void }) {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const [mode, setMode] = useState<'work' | 'break'>('work');
+  const [selectedTask, setSelectedTask] = useState<string | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeepFocus, setIsDeepFocus] = useState(false);
+  const [ambientSound, setAmbientSound] = useState<'none' | 'rain' | 'forest' | 'lofi'>('none');
+  const [reflection, setReflection] = useState('');
+  
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  const totalTime = mode === 'work' ? 25 * 60 : 5 * 60;
+  const progress = (timeLeft / totalTime) * 100;
+
+  useEffect(() => {
+    if (ambientSound !== 'none' && isActive) {
+      const urls = {
+        rain: 'https://www.soundjay.com/nature/rain-01.mp3',
+        forest: 'https://www.soundjay.com/nature/forest-01.mp3',
+        lofi: 'https://www.soundjay.com/misc/sounds/lofi-beat-01.mp3' // Placeholder, real URL needed for production
+      };
+      // For demo, we'll just simulate audio logic or use a few public ones
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+        audioRef.current.loop = true;
+      }
+      // audioRef.current.src = urls[ambientSound];
+      // audioRef.current.play().catch(() => {});
+    } else {
+      audioRef.current?.pause();
+    }
+    return () => audioRef.current?.pause();
+  }, [ambientSound, isActive]);
 
   useEffect(() => {
     let interval: any = null;
@@ -726,6 +931,12 @@ function Pomodoro({ addStudySession }: { addStudySession: (d: number) => void })
     } else if (timeLeft === 0) {
       if (mode === 'work') {
         addStudySession(25);
+        if (!isMuted) {
+          try {
+            const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3');
+            audio.play();
+          } catch (e) {}
+        }
         setMode('break');
         setTimeLeft(5 * 60);
       } else {
@@ -735,7 +946,7 @@ function Pomodoro({ addStudySession }: { addStudySession: (d: number) => void })
       setIsActive(false);
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, mode]);
+  }, [isActive, timeLeft, mode, isMuted]);
 
   const toggleTimer = () => setIsActive(!isActive);
   const resetTimer = () => {
@@ -749,57 +960,537 @@ function Pomodoro({ addStudySession }: { addStudySession: (d: number) => void })
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const stats = useMemo(() => {
+    const today = userData.studySessions.filter(s => isSameDay(parseISO(s.date), new Date()));
+    const totalMinutes = today.reduce((acc, s) => acc + s.durationMinutes, 0);
+    return {
+      sessionsToday: today.length,
+      totalMinutesToday: totalMinutes
+    };
+  }, [userData.studySessions]);
+
+  const currentTask = userData.tasks.find(t => t.id === selectedTask);
+
   return (
-    <div className="max-w-md mx-auto text-center space-y-8 py-12">
-      <header className="border-b border-border pb-8 mb-8">
-        <h2 className="text-4xl font-serif font-light tracking-tight">Focus Timer</h2>
-        <p className="text-white/50 mt-2 font-light tracking-wide">Deep work sessions for maximum retention.</p>
+    <div className={cn(
+      "max-w-4xl mx-auto space-y-8 transition-all duration-500",
+      isDeepFocus && "fixed inset-0 z-[100] bg-background p-8 overflow-y-auto"
+    )}>
+      <header className="flex items-center justify-between border-b border-border pb-8 mb-8">
+        <div>
+          <h2 className="text-4xl font-serif font-light tracking-tight">Focus Engine <span className="text-xs font-mono bg-accent/10 text-accent px-2 py-1 rounded ml-2 uppercase tracking-widest">v2.0</span></h2>
+          <p className="text-white/50 mt-2 font-light tracking-wide">Advanced neuro-rhythmic timing for peak cognitive performance.</p>
+        </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setIsMuted(!isMuted)}
+            className="nothing-button-outline p-3 rounded-full hover:bg-white/5"
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+          <button 
+            onClick={() => setIsDeepFocus(!isDeepFocus)}
+            className={cn("nothing-button-outline p-3 rounded-full transition-all", isDeepFocus && "bg-accent text-black")}
+            title="Deep Focus Mode"
+          >
+            <Maximize2 size={20} />
+          </button>
+        </div>
       </header>
 
-      <div className="nothing-card p-12 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-white/5">
-          <motion.div 
-            className="h-full bg-accent"
-            initial={{ width: '100%' }}
-            animate={{ width: `${(timeLeft / (mode === 'work' ? 25 * 60 : 5 * 60)) * 100}%` }}
-          />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="nothing-card p-12 flex flex-col items-center justify-center relative group">
+            {/* Pulsating Glow */}
+            <motion.div 
+              animate={{ 
+                scale: isActive ? [1, 1.05, 1] : 1,
+                opacity: isActive ? [0.1, 0.2, 0.1] : 0.05
+              }}
+              transition={{ duration: 4, repeat: Infinity }}
+              className={cn(
+                "absolute inset-0 rounded-xl transition-colors duration-1000",
+                mode === 'work' ? "bg-accent" : "bg-secondary"
+              )}
+            />
+
+            {/* Circular Progress Ring */}
+            <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center z-10">
+              <svg className="w-full h-full -rotate-90">
+                <circle 
+                  cx="50%" cy="50%" r="48%" 
+                  className="stroke-white/5 fill-none" 
+                  strokeWidth="2" 
+                />
+                <motion.circle 
+                  cx="50%" cy="50%" r="48%" 
+                  className={cn("fill-none transition-colors duration-500", mode === 'work' ? "stroke-accent" : "stroke-secondary")}
+                  strokeWidth="6"
+                  strokeDasharray="100 100"
+                  animate={{ strokeDashoffset: 100 - progress }}
+                  transition={{ duration: 1, ease: "linear" }}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <motion.span 
+                  animate={{ opacity: isActive ? [0.4, 1, 0.4] : 0.4 }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/40 mb-2"
+                >
+                  {mode}
+                </motion.span>
+                <h3 className="text-7xl md:text-8xl font-bold font-mono tracking-tighter">{formatTime(timeLeft)}</h3>
+              </div>
+            </div>
+
+            <div className="flex justify-center gap-4 mt-12 w-full max-w-sm z-10">
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={toggleTimer} 
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-lg transition-all shadow-2xl",
+                  isActive ? "bg-white/5 text-white border border-white/10" : "bg-accent text-black"
+                )}
+              >
+                {isActive ? <Pause size={24} /> : <Play size={24} />}
+                {isActive ? 'Pause' : 'Start Session'}
+              </motion.button>
+              <motion.button 
+                whileHover={{ scale: 1.05, rotate: -90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={resetTimer} 
+                className="nothing-button-outline px-6 py-4 rounded-xl"
+              >
+                <RotateCcw size={24} />
+              </motion.button>
+            </div>
+
+            <div className="flex justify-center gap-4 mt-8 z-10">
+              <button 
+                onClick={() => { setMode('work'); setTimeLeft(25 * 60); setIsActive(false); }}
+                className={cn("px-6 py-2 rounded-full text-[10px] font-mono uppercase tracking-widest transition-all border", mode === 'work' ? "bg-accent text-black border-accent" : "text-white/40 border-white/10 hover:border-white/30")}
+              >
+                Work
+              </button>
+              <button 
+                onClick={() => { setMode('break'); setTimeLeft(5 * 60); setIsActive(false); }}
+                className={cn("px-6 py-2 rounded-full text-[10px] font-mono uppercase tracking-widest transition-all border", mode === 'break' ? "bg-secondary text-white border-secondary" : "text-white/40 border-white/10 hover:border-white/30")}
+              >
+                Break
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="nothing-card p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <History className="text-accent" size={20} />
+                <h4 className="text-sm font-mono uppercase tracking-widest text-white/60">Today's Stats</h4>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-2xl font-bold">{stats.sessionsToday}</p>
+                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Sessions Completed</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">{Math.floor(stats.totalMinutesToday / 60)}h {stats.totalMinutesToday % 60}m</p>
+                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Total Focus Time</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="nothing-card p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Target className="text-secondary" size={20} />
+                <h4 className="text-sm font-mono uppercase tracking-widest text-white/60">Session Goal</h4>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/40">Progress</span>
+                  <span>{Math.round((stats.totalMinutesToday / userData.settings.dailyGoalMinutes) * 100)}%</span>
+                </div>
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, (stats.totalMinutesToday / userData.settings.dailyGoalMinutes) * 100)}%` }}
+                    className="h-full bg-accent"
+                  />
+                </div>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mt-2">
+                  Goal: {Math.floor(userData.settings.dailyGoalMinutes / 60)}h
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex justify-center gap-4 mb-8">
-          <button 
-            onClick={() => { setMode('work'); setTimeLeft(25 * 60); setIsActive(false); }}
-            className={cn("px-4 py-1 rounded-full text-xs font-mono uppercase tracking-widest transition-all", mode === 'work' ? "bg-accent text-black" : "text-white/40 hover:text-white")}
-          >
-            Work
-          </button>
-          <button 
-            onClick={() => { setMode('break'); setTimeLeft(5 * 60); setIsActive(false); }}
-            className={cn("px-4 py-1 rounded-full text-xs font-mono uppercase tracking-widest transition-all", mode === 'break' ? "bg-secondary text-white" : "text-white/40 hover:text-white")}
-          >
-            Break
-          </button>
-        </div>
+        <div className="space-y-6">
+          <div className="nothing-card">
+            <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Session Context</h4>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Working on Task</label>
+                <select 
+                  value={selectedTask || ''} 
+                  onChange={(e) => setSelectedTask(e.target.value)}
+                  className="w-full nothing-input bg-white/5"
+                >
+                  <option value="">No specific task</option>
+                  {userData.tasks.filter(t => !t.completed).map(t => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
+                {currentTask && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10"
+                  >
+                    <span className="text-xs truncate max-w-[150px]">{currentTask.title}</span>
+                    <button 
+                      onClick={() => toggleTask(currentTask.id)}
+                      className="text-[10px] font-mono text-accent hover:underline"
+                    >
+                      Mark Done
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Ambient Sound</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['none', 'rain', 'forest', 'lofi'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setAmbientSound(s)}
+                      className={cn(
+                        "py-2 text-[10px] font-mono uppercase tracking-widest rounded border transition-all",
+                        ambientSound === s ? "bg-white/10 border-white/20 text-white" : "border-white/5 text-white/30 hover:border-white/10"
+                      )}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <h3 className="text-8xl font-bold font-mono tracking-tighter mb-8">{formatTime(timeLeft)}</h3>
+          <div className="nothing-card">
+            <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Post-Session Reflection</h4>
+            <textarea 
+              placeholder="What did you achieve? (Optional)"
+              value={reflection}
+              onChange={(e) => setReflection(e.target.value)}
+              className="w-full nothing-input bg-white/5 h-24 resize-none text-xs"
+            />
+          </div>
 
-        <div className="flex justify-center gap-4">
-          <button onClick={toggleTimer} className="nothing-button px-12 py-4 text-lg">
-            {isActive ? 'Pause' : 'Start'}
-          </button>
-          <button onClick={resetTimer} className="nothing-button-outline px-6 py-4">
-            <RotateCcw size={24} />
-          </button>
+          <div className="nothing-card">
+            <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Recent Sessions</h4>
+            <div className="space-y-3 max-h-48 overflow-y-auto scrollbar-hide">
+              {userData.studySessions.slice(-5).reverse().map((session, i) => (
+                <div key={i} className="flex items-center justify-between text-xs border-b border-white/5 pb-2 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    <span className="text-white/60">{format(parseISO(session.date), 'HH:mm')}</span>
+                  </div>
+                  <span className="font-mono">{session.durationMinutes}m</span>
+                </div>
+              ))}
+              {userData.studySessions.length === 0 && (
+                <p className="text-[10px] text-white/20 italic">No sessions yet today.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="nothing-card p-4">
-          <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1">Sessions Today</p>
-          <p className="text-2xl font-bold">4</p>
+// --- Tasks Component ---
+function Tasks({ userData, addTask, toggleTask, deleteTask }: { 
+  userData: UserData, 
+  addTask: (t: Omit<Task, 'id' | 'createdAt' | 'completed'>) => void,
+  toggleTask: (id: string) => void,
+  deleteTask: (id: string | string[]) => void
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [filter, setFilter] = useState<'All' | 'Study' | 'Personal' | 'Work'>('All');
+  const [formData, setFormData] = useState({
+    title: '',
+    category: 'Study' as TaskCategory,
+    priority: 'Medium' as TaskPriority,
+    dueDate: format(new Date(), 'yyyy-MM-dd'),
+  });
+
+  const filteredTasks = userData.tasks.filter(t => filter === 'All' || t.category === filter);
+  
+  const stats = useMemo(() => {
+    const total = userData.tasks.length;
+    const completed = userData.tasks.filter(t => t.completed).length;
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+    
+    // Calculate streak (consecutive days with at least one task completed)
+    let streak = 0;
+    const completedDates = [...new Set(userData.tasks
+      .filter(t => t.completed)
+      .map(t => format(parseISO(t.createdAt), 'yyyy-MM-dd'))
+    )].sort().reverse();
+
+    if (completedDates.length > 0) {
+      let current = new Date();
+      const today = format(current, 'yyyy-MM-dd');
+      const yesterday = format(subDays(current, 1), 'yyyy-MM-dd');
+      
+      if (completedDates[0] === today || completedDates[0] === yesterday) {
+        streak = 1;
+        for (let i = 0; i < completedDates.length - 1; i++) {
+          const d1 = parseISO(completedDates[i]);
+          const d2 = parseISO(completedDates[i+1]);
+          if (isSameDay(subDays(d1, 1), d2)) {
+            streak++;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    return { total, completed, progress, streak };
+  }, [userData.tasks]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addTask({
+      title: formData.title,
+      category: formData.category,
+      priority: formData.priority,
+      dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
+    });
+    setShowAdd(false);
+    setFormData({ title: '', category: 'Study', priority: 'Medium', dueDate: format(new Date(), 'yyyy-MM-dd') });
+  };
+
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-8 mb-8">
+        <div>
+          <h2 className="text-4xl font-serif font-light tracking-tight">Task Tracker</h2>
+          <p className="text-white/50 mt-2 font-light tracking-wide">Stay organized and productive.</p>
         </div>
-        <div className="nothing-card p-4">
-          <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1">Focus Time</p>
-          <p className="text-2xl font-bold">1h 40m</p>
+        <div className="flex gap-3">
+          <div className="nothing-card py-2 px-4 flex items-center gap-2 border-accent/20 bg-accent/5">
+            <Flame size={18} className="text-orange-500 fill-orange-500" />
+            <span className="font-bold text-accent">{stats.streak} Day Streak</span>
+          </div>
+          <button onClick={() => setShowAdd(!showAdd)} className="nothing-button flex items-center gap-2">
+            <Plus size={18} /> Add Task
+          </button>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="md:col-span-1 space-y-6">
+          <div className="nothing-card">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Progress</h3>
+            <div className="relative h-32 w-32 mx-auto">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Completed', value: stats.completed },
+                      { name: 'Remaining', value: stats.total - stats.completed || 1 }
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={55}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#ffffff" />
+                    <Cell fill="#1f1f1f" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold">{stats.progress}%</span>
+              </div>
+            </div>
+            <p className="text-center text-[10px] font-mono text-white/40 uppercase tracking-widest mt-4">
+              {stats.completed}/{stats.total} Tasks Done
+            </p>
+          </div>
+
+          <div className="nothing-card">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Categories</h3>
+            <div className="space-y-2">
+              {['All', 'Study', 'Personal', 'Work'].map(cat => (
+                <button 
+                  key={cat}
+                  onClick={() => setFilter(cat as any)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-lg text-sm transition-all",
+                    filter === cat ? "bg-white text-black font-medium" : "text-white/60 hover:bg-white/5"
+                  )}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            
+            {userData.tasks.some(t => t.completed) && (
+              <button 
+                onClick={() => {
+                  const completedIds = userData.tasks.filter(t => t.completed).map(t => t.id);
+                  deleteTask(completedIds);
+                }}
+                className="w-full mt-6 text-left px-3 py-2 rounded-lg text-xs text-red-500/60 hover:text-red-500 hover:bg-red-500/5 transition-all flex items-center gap-2"
+              >
+                <Trash2 size={14} />
+                Clear Completed
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="md:col-span-3 space-y-6">
+          {showAdd && (
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="nothing-card">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <input 
+                  required
+                  type="text" 
+                  placeholder="What needs to be done?" 
+                  className="w-full nothing-input text-lg py-4"
+                  value={formData.title}
+                  onChange={e => setFormData({...formData, title: e.target.value})}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Category</label>
+                    <select 
+                      className="w-full nothing-input"
+                      value={formData.category}
+                      onChange={e => setFormData({...formData, category: e.target.value as TaskCategory})}
+                    >
+                      <option value="Study">Study</option>
+                      <option value="Personal">Personal</option>
+                      <option value="Work">Work</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Priority</label>
+                    <select 
+                      className="w-full nothing-input"
+                      value={formData.priority}
+                      onChange={e => setFormData({...formData, priority: e.target.value as TaskPriority})}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Due Date</label>
+                    <input 
+                      type="date" 
+                      className="w-full nothing-input"
+                      value={formData.dueDate}
+                      onChange={e => setFormData({...formData, dueDate: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" onClick={() => setShowAdd(false)} className="nothing-button-outline">Cancel</button>
+                  <button type="submit" className="nothing-button">Add Task</button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          <div className="space-y-3">
+            <AnimatePresence initial={false}>
+              {filteredTasks.length === 0 ? (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="nothing-card text-center py-12 border-dashed"
+                >
+                  <ListTodo size={48} className="mx-auto text-white/10 mb-4" />
+                  <p className="text-white/40">No tasks found in this category.</p>
+                </motion.div>
+              ) : (
+                filteredTasks.sort((a, b) => {
+                  if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                  const pMap = { High: 0, Medium: 1, Low: 2 };
+                  return pMap[a.priority] - pMap[b.priority];
+                }).map(task => (
+                  <motion.div 
+                    key={task.id}
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className={cn(
+                      "nothing-card p-4 flex items-center gap-4 group transition-all",
+                      task.completed && "opacity-50 grayscale"
+                    )}
+                  >
+                    <motion.button 
+                      whileTap={{ scale: 0.8 }}
+                      onClick={() => toggleTask(task.id)}
+                      className={cn(
+                        "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+                        task.completed ? "bg-accent border-accent text-black" : "border-white/20 hover:border-accent"
+                      )}
+                    >
+                      {task.completed && <CheckCircle2 size={14} />}
+                    </motion.button>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className={cn(
+                        "font-medium truncate",
+                        task.completed && "line-through text-white/40"
+                      )}>{task.title}</h4>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className={cn(
+                          "text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded",
+                          task.priority === 'High' ? "bg-red-500/10 text-red-500" : 
+                          task.priority === 'Medium' ? "bg-yellow-500/10 text-yellow-500" : 
+                          "bg-blue-500/10 text-blue-500"
+                        )}>
+                          {task.priority}
+                        </span>
+                        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest flex items-center gap-1">
+                          <CalendarDays size={10} /> {task.dueDate ? format(parseISO(task.dueDate), 'MMM d') : 'No date'}
+                        </span>
+                        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">
+                          • {task.category}
+                        </span>
+                      </div>
+                    </div>
+
+                    <motion.button 
+                      whileHover={{ scale: 1.1, color: '#ef4444' }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => deleteTask(task.id)}
+                      className="opacity-40 group-hover:opacity-100 p-2 text-white/40 hover:text-red-500 transition-all"
+                      title="Delete Task"
+                    >
+                      <Trash2 size={18} />
+                    </motion.button>
+                  </motion.div>
+                ))
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>

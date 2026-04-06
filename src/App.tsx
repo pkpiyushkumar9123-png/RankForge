@@ -337,6 +337,50 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, labe
   );
 }
 
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  title?: string;
+}
+
+function Modal({ isOpen, onClose, children, title }: ModalProps) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-lg nothing-card p-8 shadow-2xl border border-white/10"
+          >
+            {title && (
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-serif font-light tracking-tight">{title}</h3>
+                <button 
+                  onClick={onClose}
+                  className="p-2 hover:bg-white/5 rounded-full transition-colors text-white/40 hover:text-white"
+                >
+                  <Plus className="rotate-45" size={20} />
+                </button>
+              </div>
+            )}
+            {children}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // --- Dashboard Component ---
 function Dashboard({ userData, setActiveTab, addStudySession }: { userData: UserData, setActiveTab: (t: string) => void, addStudySession: (d: number) => void }) {
   const stats = useMemo(() => {
@@ -885,6 +929,167 @@ function Analytics({ userData }: { userData: UserData }) {
   );
 }
 
+// --- Pomodoro Sub-Components ---
+
+function FocusStats({ stats }: { stats: { sessionsToday: number, totalMinutesToday: number } }) {
+  return (
+    <div className="nothing-card p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <History className="text-accent" size={20} />
+        <h4 className="text-sm font-mono uppercase tracking-widest text-white/60">Today's Stats</h4>
+      </div>
+      <div className="space-y-4">
+        <div className="flex justify-between items-end">
+          <div>
+            <p className="text-2xl font-bold">{stats.sessionsToday}</p>
+            <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Sessions Completed</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold">{Math.floor(stats.totalMinutesToday / 60)}h {stats.totalMinutesToday % 60}m</p>
+            <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Total Focus Time</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FocusGoal({ stats, dailyGoalMinutes }: { stats: { totalMinutesToday: number }, dailyGoalMinutes: number }) {
+  const progress = Math.min(100, (stats.totalMinutesToday / dailyGoalMinutes) * 100);
+  
+  return (
+    <div className="nothing-card p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <Target className="text-secondary" size={20} />
+        <h4 className="text-sm font-mono uppercase tracking-widest text-white/60">Session Goal</h4>
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between text-xs">
+          <span className="text-white/40">Progress</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            className="h-full bg-accent"
+          />
+        </div>
+        <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mt-2">
+          Goal: {Math.floor(dailyGoalMinutes / 60)}h
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FocusContext({ 
+  tasks, 
+  selectedTask, 
+  setSelectedTask, 
+  toggleTask, 
+  ambientSound, 
+  setAmbientSound 
+}: { 
+  tasks: Task[], 
+  selectedTask: string | null, 
+  setSelectedTask: (id: string) => void,
+  toggleTask: (id: string) => void,
+  ambientSound: string,
+  setAmbientSound: (s: any) => void
+}) {
+  const currentTask = tasks.find(t => t.id === selectedTask);
+
+  return (
+    <div className="nothing-card">
+      <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Session Context</h4>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Working on Task</label>
+          <select 
+            value={selectedTask || ''} 
+            onChange={(e) => setSelectedTask(e.target.value)}
+            className="w-full nothing-input bg-white/5"
+          >
+            <option value="">No specific task</option>
+            {tasks.filter(t => !t.completed).map(t => (
+              <option key={t.id} value={t.id}>{t.title}</option>
+            ))}
+          </select>
+          {currentTask && (
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10"
+            >
+              <span className="text-xs truncate max-w-[150px]">{currentTask.title}</span>
+              <button 
+                onClick={() => toggleTask(currentTask.id)}
+                className="text-[10px] font-mono text-accent hover:underline"
+              >
+                Mark Done
+              </button>
+            </motion.div>
+          )}
+        </div>
+        <div>
+          <label className="block text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Ambient Sound</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(['none', 'rain', 'forest', 'lofi'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setAmbientSound(s)}
+                className={cn(
+                  "py-2 text-[10px] font-mono uppercase tracking-widest rounded border transition-all",
+                  ambientSound === s ? "bg-white/10 border-white/20 text-white" : "border-white/5 text-white/30 hover:border-white/10"
+                )}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FocusReflection({ reflection, setReflection }: { reflection: string, setReflection: (s: string) => void }) {
+  return (
+    <div className="nothing-card">
+      <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Post-Session Reflection</h4>
+      <textarea 
+        placeholder="What did you achieve? (Optional)"
+        value={reflection}
+        onChange={(e) => setReflection(e.target.value)}
+        className="w-full nothing-input bg-white/5 h-24 resize-none text-xs"
+      />
+    </div>
+  );
+}
+
+function FocusHistory({ studySessions }: { studySessions: StudySession[] }) {
+  return (
+    <div className="nothing-card">
+      <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Recent Sessions</h4>
+      <div className="space-y-3 max-h-48 overflow-y-auto scrollbar-hide">
+        {studySessions.slice(-5).reverse().map((session, i) => (
+          <div key={i} className="flex items-center justify-between text-xs border-b border-white/5 pb-2 last:border-0">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+              <span className="text-white/60">{format(parseISO(session.date), 'HH:mm')}</span>
+            </div>
+            <span className="font-mono">{session.durationMinutes}m</span>
+          </div>
+        ))}
+        {studySessions.length === 0 && (
+          <p className="text-[10px] text-white/20 italic">No sessions yet today.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Advanced Pomodoro Component ---
 function Pomodoro({ userData, addStudySession, toggleTask }: { userData: UserData, addStudySession: (d: number) => void, toggleTask: (id: string) => void }) {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -903,24 +1108,28 @@ function Pomodoro({ userData, addStudySession, toggleTask }: { userData: UserDat
   const progress = (timeLeft / totalTime) * 100;
 
   useEffect(() => {
-    if (ambientSound !== 'none' && isActive) {
+    if (ambientSound !== 'none' && isActive && !isMuted) {
       const urls = {
-        rain: 'https://www.soundjay.com/nature/rain-01.mp3',
-        forest: 'https://www.soundjay.com/nature/forest-01.mp3',
-        lofi: 'https://www.soundjay.com/misc/sounds/lofi-beat-01.mp3' // Placeholder, real URL needed for production
+        rain: 'https://assets.mixkit.co/sfx/preview/mixkit-rain-on-window-loop-2442.mp3',
+        forest: 'https://assets.mixkit.co/sfx/preview/mixkit-forest-ambience-loop-1229.mp3',
+        lofi: 'https://assets.mixkit.co/music/preview/mixkit-lo-fi-hip-hop-624.mp3'
       };
-      // For demo, we'll just simulate audio logic or use a few public ones
+      
       if (!audioRef.current) {
         audioRef.current = new Audio();
         audioRef.current.loop = true;
       }
-      // audioRef.current.src = urls[ambientSound];
-      // audioRef.current.play().catch(() => {});
+      
+      if (audioRef.current.src !== urls[ambientSound as keyof typeof urls]) {
+        audioRef.current.src = urls[ambientSound as keyof typeof urls];
+      }
+      
+      audioRef.current.play().catch(e => console.log("Audio play blocked:", e));
     } else {
       audioRef.current?.pause();
     }
     return () => audioRef.current?.pause();
-  }, [ambientSound, isActive]);
+  }, [ambientSound, isActive, isMuted]);
 
   useEffect(() => {
     let interval: any = null;
@@ -1085,128 +1294,24 @@ function Pomodoro({ userData, addStudySession, toggleTask }: { userData: UserDat
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="nothing-card p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <History className="text-accent" size={20} />
-                <h4 className="text-sm font-mono uppercase tracking-widest text-white/60">Today's Stats</h4>
-              </div>
-              <div className="space-y-4">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="text-2xl font-bold">{stats.sessionsToday}</p>
-                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Sessions Completed</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">{Math.floor(stats.totalMinutesToday / 60)}h {stats.totalMinutesToday % 60}m</p>
-                    <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Total Focus Time</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="nothing-card p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Target className="text-secondary" size={20} />
-                <h4 className="text-sm font-mono uppercase tracking-widest text-white/60">Session Goal</h4>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-white/40">Progress</span>
-                  <span>{Math.round((stats.totalMinutesToday / userData.settings.dailyGoalMinutes) * 100)}%</span>
-                </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, (stats.totalMinutesToday / userData.settings.dailyGoalMinutes) * 100)}%` }}
-                    className="h-full bg-accent"
-                  />
-                </div>
-                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mt-2">
-                  Goal: {Math.floor(userData.settings.dailyGoalMinutes / 60)}h
-                </p>
-              </div>
-            </div>
+            <FocusStats stats={stats} />
+            <FocusGoal stats={stats} dailyGoalMinutes={userData.settings.dailyGoalMinutes} />
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="nothing-card">
-            <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Session Context</h4>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Working on Task</label>
-                <select 
-                  value={selectedTask || ''} 
-                  onChange={(e) => setSelectedTask(e.target.value)}
-                  className="w-full nothing-input bg-white/5"
-                >
-                  <option value="">No specific task</option>
-                  {userData.tasks.filter(t => !t.completed).map(t => (
-                    <option key={t.id} value={t.id}>{t.title}</option>
-                  ))}
-                </select>
-                {currentTask && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10"
-                  >
-                    <span className="text-xs truncate max-w-[150px]">{currentTask.title}</span>
-                    <button 
-                      onClick={() => toggleTask(currentTask.id)}
-                      className="text-[10px] font-mono text-accent hover:underline"
-                    >
-                      Mark Done
-                    </button>
-                  </motion.div>
-                )}
-              </div>
-              <div>
-                <label className="block text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Ambient Sound</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['none', 'rain', 'forest', 'lofi'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setAmbientSound(s)}
-                      className={cn(
-                        "py-2 text-[10px] font-mono uppercase tracking-widest rounded border transition-all",
-                        ambientSound === s ? "bg-white/10 border-white/20 text-white" : "border-white/5 text-white/30 hover:border-white/10"
-                      )}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <FocusContext 
+            tasks={userData.tasks}
+            selectedTask={selectedTask}
+            setSelectedTask={setSelectedTask}
+            toggleTask={toggleTask}
+            ambientSound={ambientSound}
+            setAmbientSound={setAmbientSound}
+          />
 
-          <div className="nothing-card">
-            <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Post-Session Reflection</h4>
-            <textarea 
-              placeholder="What did you achieve? (Optional)"
-              value={reflection}
-              onChange={(e) => setReflection(e.target.value)}
-              className="w-full nothing-input bg-white/5 h-24 resize-none text-xs"
-            />
-          </div>
+          <FocusReflection reflection={reflection} setReflection={setReflection} />
 
-          <div className="nothing-card">
-            <h4 className="text-xs font-mono uppercase tracking-widest text-white/40 mb-4">Recent Sessions</h4>
-            <div className="space-y-3 max-h-48 overflow-y-auto scrollbar-hide">
-              {userData.studySessions.slice(-5).reverse().map((session, i) => (
-                <div key={i} className="flex items-center justify-between text-xs border-b border-white/5 pb-2 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                    <span className="text-white/60">{format(parseISO(session.date), 'HH:mm')}</span>
-                  </div>
-                  <span className="font-mono">{session.durationMinutes}m</span>
-                </div>
-              ))}
-              {userData.studySessions.length === 0 && (
-                <p className="text-[10px] text-white/20 italic">No sessions yet today.</p>
-              )}
-            </div>
-          </div>
+          <FocusHistory studySessions={userData.studySessions} />
         </div>
       </div>
     </div>
@@ -1361,59 +1466,68 @@ function Tasks({ userData, addTask, toggleTask, deleteTask }: {
         </div>
 
         <div className="md:col-span-3 space-y-6">
-          {showAdd && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="nothing-card">
-              <form onSubmit={handleSubmit} className="space-y-4">
+          <Modal 
+            isOpen={showAdd} 
+            onClose={() => setShowAdd(false)}
+            title="Create New Task"
+          >
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Task Title</label>
                 <input 
                   required
+                  autoFocus
                   type="text" 
                   placeholder="What needs to be done?" 
                   className="w-full nothing-input text-lg py-4"
                   value={formData.title}
                   onChange={e => setFormData({...formData, title: e.target.value})}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Category</label>
-                    <select 
-                      className="w-full nothing-input"
-                      value={formData.category}
-                      onChange={e => setFormData({...formData, category: e.target.value as TaskCategory})}
-                    >
-                      <option value="Study">Study</option>
-                      <option value="Personal">Personal</option>
-                      <option value="Work">Work</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Priority</label>
-                    <select 
-                      className="w-full nothing-input"
-                      value={formData.priority}
-                      onChange={e => setFormData({...formData, priority: e.target.value as TaskPriority})}
-                    >
-                      <option value="High">High</option>
-                      <option value="Medium">Medium</option>
-                      <option value="Low">Low</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">Due Date</label>
-                    <input 
-                      type="date" 
-                      className="w-full nothing-input"
-                      value={formData.dueDate}
-                      onChange={e => setFormData({...formData, dueDate: e.target.value})}
-                    />
-                  </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Category</label>
+                  <select 
+                    className="w-full nothing-input"
+                    value={formData.category}
+                    onChange={e => setFormData({...formData, category: e.target.value as TaskCategory})}
+                  >
+                    <option value="Study">Study</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Work">Work</option>
+                  </select>
                 </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => setShowAdd(false)} className="nothing-button-outline">Cancel</button>
-                  <button type="submit" className="nothing-button">Add Task</button>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Priority</label>
+                  <select 
+                    className="w-full nothing-input"
+                    value={formData.priority}
+                    onChange={e => setFormData({...formData, priority: e.target.value as TaskPriority})}
+                  >
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
                 </div>
-              </form>
-            </motion.div>
-          )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-white/40 mb-2">Due Date</label>
+                <input 
+                  type="date" 
+                  className="w-full nothing-input"
+                  value={formData.dueDate}
+                  onChange={e => setFormData({...formData, dueDate: e.target.value})}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="button" onClick={() => setShowAdd(false)} className="nothing-button-outline px-6">Cancel</button>
+                <button type="submit" className="nothing-button px-8">Create Task</button>
+              </div>
+            </form>
+          </Modal>
 
           <div className="space-y-3">
             <AnimatePresence initial={false}>
